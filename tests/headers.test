@@ -1,0 +1,10 @@
+http GET http://httpbin.org/headers
+{
+  "headers": {
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "close",
+    "Host": "httpbin.org",
+    "User-Agent": "HTTPie/0.9.9"
+  }
+}

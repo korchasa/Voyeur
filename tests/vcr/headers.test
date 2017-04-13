@@ -1,9 +1,10 @@
-http GET http://httpbin.org/headers
+http GET http://voyeur-httpbin.org/headers --json
 {
   "headers": {
-    "Accept": "*/*",
+    "Accept": "application/json, */*",
     "Accept-Encoding": "gzip, deflate",
     "Connection": "close",
+    "Content-Type": "application/json",
     "Host": "httpbin.org",
     "User-Agent": "HTTPie/0.9.9"
   }

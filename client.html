@@ -1,0 +1,41 @@
+<html>
+<body>
+    <div id="app">
+        <ul>
+            <li v-for="call in calls">
+                Request: <pre>{{ call.request }}</pre>
+                <br/>
+                Response: <pre>{{ call.response }}</pre>
+            </li>
+        </ul>
+    </div>
+    <pre id="content">
+
+    </pre>
+</body>
+<script src="https://unpkg.com/vue"></script>
+<script>
+    var app = new Vue({
+      el: '#app',
+      data: {
+        calls: []
+      }
+    });
+
+    var ws = new WebSocket("ws://localhost:12345/");
+    ws.onopen = function (event) {
+        console.log('Connected');
+    };
+    ws.onerror = function (error) {
+        console.log('WebSocket Error ', error);
+    };
+    ws.onmessage = function (event) {
+        var call = JSON.parse(event.data);
+        console.log(call);
+        app.calls.push({
+            request: window.atob(call.raw_request),
+            response: window.atob(call.raw_response)
+        });
+    };
+</script>
+</html>

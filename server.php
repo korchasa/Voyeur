@@ -14,52 +14,51 @@ $dns = $dnsResolverFactory->createCached('8.8.8.8:53', $loop);
 $upstreamConnector = new Connector($loop, $dns);
 $httpHeadersParser = new \React\Http\RequestHeaderParser();
 
-$proxyHost = '127.0.0.1';
-$proxyPort = 8080;
-
-$protocol = null;
+$proxyHost = 'voyeur-httpbin.org';
+$proxyPort = 80;
 
 $app = function (ConnectionInterface $proxyConnection)
     use ($loop, $upstreamConnector, $wsServer, $proxyHost, $proxyPort, $httpHeadersParser) {
-    $proxyConnection->on('data', function ($proxyRequestString, $proxyConnection)
+    $proxyConnection->on('data', function ($proxyRequestString, \React\Socket\Connection $proxyConnection)
         use ($upstreamConnector, $wsServer, $proxyHost, $proxyPort, $httpHeadersParser) {
 
-        /** @var \React\Http\Request $httpRequest */
+//        /** @var \React\Http\Request $httpRequest */
 //        list($httpRequest, ) = $httpHeadersParser->parseRequest($proxyRequestString);
+
+        echo 'Request from '.$proxyConnection->getRemoteAddress().PHP_EOL;
 
         $host = 'httpbin.org';
         $port = 80;
-        $proxyRequest = str_replace(
-            'Host: ' . '127.0.0.1' . ':' . 8080,
-            'Host: ' . $host . ':' . $port,
+
+        $proxyRequestString = str_replace(
+            'Host: ' . $proxyHost . ($proxyPort != 80 ? ':' . $proxyPort : ''),
+            'Host: ' . $host .  ($port != 80 ? ':' . $port : ''),
             $proxyRequestString
         );
-        $closeOnDoubleNewLine = true;
 
         $upstreamConnector
             ->create($host, $port)
             ->then(function (React\Stream\Stream $upstreamStream)
-                use ($proxyConnection, $proxyRequest, $wsServer, $closeOnDoubleNewLine) {
-                $upstreamResponseBuffer = '';
+                use ($proxyConnection, $proxyRequestString, $wsServer, $host, $port) {
                 $upstreamStream->on('data', function($upstreamResponseString)
-                    use ($upstreamResponseBuffer, $closeOnDoubleNewLine, $upstreamStream) {
-                    $upstreamResponseBuffer .= $upstreamResponseString;
-                    var_dump($upstreamResponseBuffer);
-                    if ($closeOnDoubleNewLine && "\n\n" == substr($upstreamResponseString, 2, -2)) {
-                        $upstreamStream->close();
-                    }
-                });
-                $upstreamStream->on('end', function($upstreamResponseString)
-                    use ($upstreamResponseBuffer, $wsServer, $proxyRequest) {
-                    die(__LINE__);
-                    $upstreamResponseBuffer .= $upstreamResponseString;
+                    use ($upstreamStream, $wsServer, $proxyRequestString, $host, $port) {
                     $wsServer->write(json_encode([
-                        'raw_request' => base64_encode($proxyRequest),
-                        'raw_response' => base64_encode($upstreamResponseBuffer)
+                        'dest' => $host.':'.$port,
+                        'raw_request' => base64_encode($proxyRequestString),
+                        'raw_response' => base64_encode($upstreamResponseString)
                     ]));
                 });
+//                $upstreamStream->on('end', function() {
+//                    var_dump('end');
+//                });
+//                $upstreamStream->on('close', function($upstreamResponseString)
+//                    use ($upstreamResponseBuffer, $wsServer, $proxyRequest) {
+//                    $upstreamResponseBuffer .= $upstreamResponseString;
+//                    var_dump('close');
+//
+//                });
                 $upstreamStream->pipe($proxyConnection);
-                $upstreamStream->write($proxyRequest);
+                $upstreamStream->write($proxyRequestString);
             });
     });
 };

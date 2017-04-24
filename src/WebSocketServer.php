@@ -154,6 +154,9 @@ class WebSocketServer extends Server implements EventEmitterInterface, WritableS
 
     public function write($data)
     {
+        if (!$this->connections) {
+            return;
+        }
         $encodedData = $this->encodePayload($data);
         foreach($this->connections as $connection) {
             if ($connection->isWritable()) {

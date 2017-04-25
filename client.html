@@ -75,39 +75,47 @@
             status: "badge-default",
             status_str: "no signal",
             error_str: ''
+        },
+        methods: {
+            connect: function () {
+                var ws = new WebSocket("ws://localhost:12345/");
+                ws.onopen = function (event) {
+                    app.status = "badge-success";
+                    app.status_str = "connected";
+                };
+                ws.onerror = function (event) {
+                    app.status = "badge-danger";
+                    app.status_str = "error";
+                    app.error_str = JSON.stringify(event);
+
+                    setTimeout(this.connect, 1000);
+                };
+                ws.onmessage = function (event) {
+                    app.status = "badge-primary";
+                    app.status_str = "signal";
+
+                    var call = JSON.parse(event.data);
+                    console.log(call);
+                    app.calls.push({
+                        time: call.time,
+                        sender: call.sender,
+                        destination: call.destination,
+                        request: window.atob(call.raw_request),
+                        response: window.atob(call.raw_response)
+                    });
+
+                    $('pre code').each(function(i, block) {
+                        hljs.highlightBlock(block);
+                    });
+
+                    app.status = "badge-success";
+                    app.status_str = "connected";
+                };
+            }
+        },
+        created: function () {
+            this.connect();
         }
     });
-
-    var ws = new WebSocket("ws://localhost:12345/");
-    ws.onopen = function (event) {
-        app.status = "badge-success";
-        app.status_str = "connected";
-    };
-    ws.onerror = function (event) {
-        app.status = "badge-danger";
-        app.status_str = "error";
-        app.error_str = JSON.stringify(event);
-    };
-    ws.onmessage = function (event) {
-        app.status = "badge-primary";
-        app.status_str = "signal";
-
-        var call = JSON.parse(event.data);
-        console.log(call);
-        app.calls.push({
-            time: call.time,
-            sender: call.sender,
-            destination: call.destination,
-            request: window.atob(call.raw_request),
-            response: window.atob(call.raw_response)
-        });
-
-        $('pre code').each(function(i, block) {
-            hljs.highlightBlock(block);
-        });
-
-        app.status = "badge-success";
-        app.status_str = "connected";
-    };
 </script>
 </html>

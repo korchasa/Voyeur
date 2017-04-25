@@ -41,9 +41,16 @@ $app = function (ConnectionInterface $proxyConnection)
             ->then(function (React\Stream\Stream $upstreamStream)
                 use ($proxyConnection, $proxyRequestString, $wsServer, $host, $port) {
                 $upstreamStream->on('data', function($upstreamResponseString)
-                    use ($upstreamStream, $wsServer, $proxyRequestString, $host, $port) {
+                    use ($proxyConnection, $upstreamStream, $wsServer, $proxyRequestString, $host, $port) {
                     $wsServer->write(json_encode([
-                        'dest' => $host.':'.$port,
+                        'time' => time(),
+                        'sender' => [
+                            'address' => $proxyConnection->getRemoteAddress(),
+                        ],
+                        'destination' => [
+                            'host' => $host,
+                            'port' => (integer) $port,
+                        ],
                         'raw_request' => base64_encode($proxyRequestString),
                         'raw_response' => base64_encode($upstreamResponseString)
                     ]));

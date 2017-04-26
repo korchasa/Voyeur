@@ -11,6 +11,30 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
           integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/styles/github-gist.min.css"/>
+    <style>
+        @media (min-width: 1600px) {
+            body {
+                font-size: .9rem;
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+
+            .container {
+                width: 1540px;
+                max-width: 100%;
+            }
+
+            pre {
+                white-space: pre-wrap;       /* Since CSS 2.1 */
+                white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+                white-space: -pre-wrap;      /* Opera 4-6 */
+                white-space: -o-pre-wrap;    /* Opera 7 */
+                word-wrap: break-word;       /* Internet Explorer 5.5+ */
+            }
+        }
+
+
+    </style>
 </head>
 
 <body>
@@ -30,29 +54,35 @@
             </div>
         </div>
 
-        <div id="accordion" role="tablist" aria-multiselectable="true" v-for="call in calls">
-            <div class="card">
-                <div class="card-header" role="tab" id="headingOne">
-                    <h5 class="mb-0">
-                        <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                            <small>{{ call.time }}</small>
-                            {{ call.sender.address }} &rarr;
-                            {{ call.destination.host }}
-                                <small>:{{ call.destination.port }}</small>
-                        </a>
-                    </h5>
-                </div>
+        <div v-for="sequence in sequences" class="row">
+            <div class="col-lg-12">
+                <h3>{{ sequence.id }}</h3>
+                <div id="accordion" role="tablist" aria-multiselectable="true" v-for="(call, index) in sequence.calls">
 
-                <div id="collapseOne" class="collapse show" role="tabpanel" aria-labelledby="headingOne">
-                    <div class="card-block">
-                        <div class="row">
-                            <div class="col-lg-6">
-                                <h4>Request:</h4>
-                                <pre><code>{{ call.request }}</code></pre>
-                            </div>
-                            <div class="col-lg-6">
-                                <h4>Response:</h4>
-                                <pre><code>{{ call.response }}</code></pre>
+                    <div class="card">
+                        <div class="card-header" role="tab" v-bind:id="'heading-' + index">
+                            <h5 class="mb-0">
+                                <a data-toggle="collapse" class="collapsed" data-parent="#accordion" v-bind:href="'#collapse-' + index" v-bind:aria-controls="'collapse-' + index">
+                                    <small>{{ call.time }}</small>
+                                    {{ call.sender.address }} &rarr;
+                                    {{ call.destination.host }}
+                                    <small>:{{ call.destination.port }}</small>
+                                </a>
+                            </h5>
+                        </div>
+
+                        <div v-bind:id="'collapse-' + index" class="collapse" role="tabpanel" v-bind:aria-labelledby="'heading-' + index">
+                            <div class="card-block">
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <h4>Request:</h4>
+                                        <pre><code v-html="call.request"></code></pre>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <h4>Response:</h4>
+                                        <pre><code v-html="call.response"></code></pre>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -66,12 +96,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
+<script src="https://unpkg.com/http-string-parser@0.0.5/lib/parser.js"></script>
 <script src="https://unpkg.com/vue"></script>
+
 <script>
     var app = new Vue({
         el: '#app',
         data: {
-            calls: [],
+            sequences: [],
             status: "badge-default",
             status_str: "no signal",
             error_str: ''
@@ -98,26 +130,51 @@
                 ws.onmessage = function (event) {
                     app.status = "badge-primary";
                     app.status_str = "signal";
-                    that.addMessage(event);
+                    that.processCall(event);
                     app.status = "badge-success";
                     app.status_str = "connected";
                 };
+            },
+            processCall: function(event) {
+                var callData = JSON.parse(event.data);
+                var requestRaw = window.atob(callData.raw_request);
+                var responseRaw = window.atob(callData.raw_response);
+
+                var request = parseRequest(requestRaw);
+                var response = parseResponse(responseRaw);
+
+                request.payload = JSON.parse(request.body);
+                response.payload = JSON.parse(response.body);
+
+                var sequenceId = request.payload.sessionId;
+
+                var call = {
+                    time: callData.time,
+                    sender: callData.sender,
+                    destination: callData.destination,
+                    request: hljs.highlight('http', requestRaw, true).value,
+                    response: hljs.highlight('http', responseRaw, true).value
+                };
+
+                this.addCall(sequenceId, call);
+            },
+            addCall: function(seqId, call) {
+
+                for (var i = 0; i < app.sequences.length; i++) {
+                    if (app.sequences[i].id === seqId) {
+                        app.sequences[i].calls.push(call);
+                        return;
+                    }
+                }
+
+                app.sequences.push({
+                    'id': seqId,
+                    'calls': [call]
+                });
             }
         },
         created: function (event) {
             this.connect();
-        },
-        addMessage: function(event) {
-            var call = JSON.parse(event.data);
-            console.log(call);
-
-            app.calls.push({
-                time: call.time,
-                sender: call.sender,
-                destination: call.destination,
-                request: hljs.highlightBlock(window.atob(call.raw_request)),
-                response: hljs.highlightBlock(window.atob(call.raw_response))
-            });
         }
     });
 

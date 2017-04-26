@@ -38,29 +38,22 @@ EOD
         }
 
         $host = $httpRequest->getHeader('Host')[0];
+        $ip = gethostbyname($host);
         $port = 80;
 
         printf("Request from %s to %s:%d\n", $proxyConnection->getRemoteAddress(), $host, $port);
 
-//        $proxyRequestString = str_replace(
-//            'Host: ' . $proxyHost . ($proxyPort != 80 ? ':' . $proxyPort : ''),
-//            'Host: ' . $host .  ($port != 80 ? ':' . $port : ''),
-//            $proxyRequestString
-//        );
-
         $upstreamConnector
-            ->create($host, $port)
+            ->create($ip, $port)
             ->then(function (React\Stream\Stream $upstreamStream)
                 use ($proxyConnection, $proxyRequestString, $wsServer, $host, $port) {
 
-                echo "handlers\n";
-
                 $upstreamStream->on('data', function($upstreamResponseString)
-                    use ($proxyConnection, $upstreamStream, $wsServer, $proxyRequestString, $host, $port) {
+                    use ($proxyConnection, $wsServer, $proxyRequestString, $host, $port) {
                     $wsServer->write(json_encode([
                         'time' => time(),
                         'sender' => [
-                            'address' => $proxyConnection->getRemoteAddress(),
+                            'address' => gethostbyaddr($proxyConnection->getRemoteAddress()),
                         ],
                         'destination' => [
                             'host' => $host,
@@ -70,19 +63,12 @@ EOD
                         'raw_response' => base64_encode($upstreamResponseString)
                     ]));
                 });
-                $upstreamStream->on('end', function() {
-                    var_dump('end');
-                });
-                $upstreamStream->on('close', function($upstreamResponseString)
-                    use ($upstreamResponseBuffer, $wsServer, $proxyRequest) {
-                    $upstreamResponseBuffer .= $upstreamResponseString;
-                    var_dump('close');
-
-                });
+                $upstreamStream->on('end', function($upstreamResponseString) {});
+                $upstreamStream->on('close', function() {});
                 $upstreamStream->pipe($proxyConnection);
                 $upstreamStream->write($proxyRequestString);
             }, function(\Throwable $e) {
-                printf("Error: %s\n",$e->getMessage());
+                printf("Error: %s\n", $e->getMessage());
             });
     });
 };

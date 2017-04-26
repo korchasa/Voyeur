@@ -79,43 +79,51 @@
         methods: {
             connect: function () {
                 var ws = new WebSocket("ws://localhost:12345/");
+                var that = this;
                 ws.onopen = function (event) {
                     app.status = "badge-success";
                     app.status_str = "connected";
+                    app.error_str = '';
                 };
                 ws.onerror = function (event) {
                     app.status = "badge-danger";
                     app.status_str = "error";
                     app.error_str = JSON.stringify(event);
-
-                    setTimeout(this.connect, 1000);
+                };
+                ws.onclose = function (event) {
+                    app.status = "badge-warning";
+                    app.status_str = "disconnected";
+                    app.error_str = '';
                 };
                 ws.onmessage = function (event) {
                     app.status = "badge-primary";
                     app.status_str = "signal";
-
-                    var call = JSON.parse(event.data);
-                    console.log(call);
-                    app.calls.push({
-                        time: call.time,
-                        sender: call.sender,
-                        destination: call.destination,
-                        request: window.atob(call.raw_request),
-                        response: window.atob(call.raw_response)
-                    });
-
-                    $('pre code').each(function(i, block) {
-                        hljs.highlightBlock(block);
-                    });
-
+                    that.addMessage(event);
                     app.status = "badge-success";
                     app.status_str = "connected";
                 };
             }
         },
-        created: function () {
+        created: function (event) {
             this.connect();
+        },
+        addMessage: function(event) {
+            var call = JSON.parse(event.data);
+            console.log(call);
+
+            app.calls.push({
+                time: call.time,
+                sender: call.sender,
+                destination: call.destination,
+                request: hljs.highlightBlock(window.atob(call.raw_request)),
+                response: hljs.highlightBlock(window.atob(call.raw_response))
+            });
         }
     });
+
+    /**
+     d3 tree - http://bl.ocks.org/d3noob/8375092
+     treant - http://fperucic.github.io/treant-js/examples/tennis-draw/
+     */
 </script>
 </html>

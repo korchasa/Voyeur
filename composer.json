@@ -1,0 +1,17 @@
+{
+    "name": "korchasa/voyeur",
+    "require": {
+        "react/react": "^0.4.2"
+    },
+    "autoload": {
+      "psr-4": {
+        "App\\": "src/"
+      }
+    },
+    "authors": [
+        {
+            "name": "korchasa",
+            "email": "korchasa@gmail.com"
+        }
+    ]
+}

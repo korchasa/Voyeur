@@ -1,9 +1,0 @@
-app:
-  build: .
-  dns:
-    - 8.8.4.4
-
-tester:
-  build: ./tests
-  links:
-    - app:voyeur-httpbin.org

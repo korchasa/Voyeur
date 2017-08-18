@@ -1,8 +1,10 @@
-FROM php:7-alpine
-
-COPY . /app
+FROM composer/composer:alpine
 
 WORKDIR /app
+
+COPY . .
+
+RUN composer install
 
 EXPOSE 80 443 12345
 

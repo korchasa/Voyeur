@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/op/go-logging"
-  packages = ["."]
-  revision = "b2cb9fa56473e98db8caba80237377e83fe44db5"
-  version = "v1"
-
-[[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["websocket"]
@@ -16,6 +10,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f47e53bced6cd7dddb9d19c3cff6139565fe947dba6a0e5e7f59f6c72009fedc"
+  inputs-digest = "5158d7719437a97c51b6832d4a8142dbdd4290a88aca5930a87132b92428625f"
   solver-name = "gps-cdcl"
   solver-version = 1

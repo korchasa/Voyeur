@@ -2,28 +2,10 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/lumanetworks/go-tcp-proxy"
+  name = "github.com/op/go-logging"
   packages = ["."]
-  revision = "9536493d422d2164c3932ef5eb9b174ff5a56052"
-
-[[projects]]
-  name = "github.com/mattn/go-colorable"
-  packages = ["."]
-  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
-  version = "v0.0.9"
-
-[[projects]]
-  name = "github.com/mattn/go-isatty"
-  packages = ["."]
-  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
-  version = "v0.0.3"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mgutz/ansi"
-  packages = ["."]
-  revision = "9520e82c474b0a04dd04f8a40959027271bab992"
+  revision = "b2cb9fa56473e98db8caba80237377e83fe44db5"
+  version = "v1"
 
 [[projects]]
   branch = "master"
@@ -31,15 +13,9 @@
   packages = ["websocket"]
   revision = "a04bdaca5b32abe1c069418fb7088ae607de5bd0"
 
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "ebfc5b4631820b793c9010c87fd8fef0f39eb082"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cc3ad1cdf3dc057962a8be536955c168a32915596df9e1fc5c6e04918bedba53"
+  inputs-digest = "f47e53bced6cd7dddb9d19c3cff6139565fe947dba6a0e5e7f59f6c72009fedc"
   solver-name = "gps-cdcl"
   solver-version = 1

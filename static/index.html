@@ -110,7 +110,7 @@
         },
         methods: {
             connect: function () {
-                var ws = new WebSocket("ws://localhost:8888/echo");
+                var ws = new WebSocket("ws://localhost:9999/voyeur/echo");
                 var that = this;
                 ws.onopen = function (event) {
                     app.status = "badge-success";

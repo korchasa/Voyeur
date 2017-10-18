@@ -1,23 +1,59 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"time"
 
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
+)
+
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512
 )
 
 var (
 	localAddr = flag.String("l", ":9999", "local address")
+	requests  = make(chan RequestMessage, 10)
+	responses = make(chan ResponseMessage, 10)
+	quit      = make(chan bool, 2)
+	wsConns   = make(map[*websocket.Conn]bool)
+	requestID = 0
 )
+
+// RequestMessage -
+type RequestMessage struct {
+	TraceID     int
+	Timestamp   int64
+	Sender      string
+	Destination string
+	RawContent  string
+	Body        string
+}
+
+// ResponseMessage -
+type ResponseMessage struct {
+	TraceID    int
+	Timestamp  int64
+	RawContent string
+	Body       string
+}
 
 func main() {
 	flag.Parse()
-
-	messages := make(chan []byte)
-	wsConns := make(map[string]*websocket.Conn)
 
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
 
@@ -34,43 +70,128 @@ func main() {
 		w.Write(js)
 	})
 
-	http.Handle("/voyeur/echo", websocket.Handler(func(ws *websocket.Conn) {
-		defer func() {
-			err := ws.Close()
-			if err != nil {
-				log.Fatal("Websocket conn: ", err)
-			}
-		}()
-
-		log.Printf("New websocker client connected from %s", ws.RemoteAddr().String())
-
-		wsConns[ws.RemoteAddr().String()] = ws
-	}))
-
-	go func() {
-		msg := <-messages
-		for _, c := range wsConns {
-			_, err := c.Write(msg)
-			if err != nil {
-				log.Fatal("Error on websocket send: ", err)
-			}
+	http.HandleFunc("/voyeur/echo", func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println(err)
+			return
 		}
-	}()
+		defer func() {
+			delete(wsConns, conn)
+			conn.Close()
+		}()
+		wsConns[conn] = true
+		messageType, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err)
+		}
+		log.Printf("Read from ws %d: %s\n", messageType, msg)
+	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Handle request to %s", r.URL)
-		go func() { messages <- []byte(r.URL.Host) }()
-		r.RequestURI = ""
-		resp, err := http.DefaultClient.Do(r)
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+
+		requests <- processRequest(req)
+
+		req.RequestURI = ""
+		client := &http.Client{Timeout: time.Second * 10}
+		resp, err := client.Do(req)
 		if err != nil {
 			log.Fatal("Error on resend: ", err)
 		}
-		resp.Write(w)
+
+		response := processResponse(resp)
+
+		err = resp.Write(w)
+		if err != nil {
+			log.Fatal("Error on response write: ", err)
+		}
+
+		responses <- response
+
+		requestID++
 	})
+
+	go func() {
+		for {
+			select {
+			case req := <-requests:
+				for ws := range wsConns {
+					err := ws.WriteJSON(req)
+					if err != nil {
+						log.Println("Can't write request to websocket: ", err)
+					}
+				}
+			case resp := <-responses:
+				for ws := range wsConns {
+					err := ws.WriteJSON(resp)
+					if err != nil {
+						log.Println("Can't write response to websocket: ", err)
+					}
+				}
+			case <-quit:
+				fmt.Println("quit")
+				return
+			}
+		}
+	}()
 
 	log.Printf("Listen on %s", *localAddr)
 	err := http.ListenAndServe(*localAddr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+func processRequest(req *http.Request) RequestMessage {
+
+	fmt.Printf("Request from %s to %s\n", req.RemoteAddr, req.Host)
+
+	reqDump, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		log.Println("Can't dump request: ", err)
+	}
+
+	buf, _ := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Println("Can't read body: ", err)
+	}
+	bodyReader := ioutil.NopCloser(bytes.NewBuffer(buf))
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+	body, _ := ioutil.ReadAll(bodyReader)
+
+	return RequestMessage{
+		TraceID:     requestID,
+		Timestamp:   makeTimestamp(),
+		Sender:      req.RemoteAddr,
+		Destination: req.Host,
+		RawContent:  string(reqDump),
+		Body:        string(body),
+	}
+}
+
+func processResponse(resp *http.Response) ResponseMessage {
+	responseDump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		log.Println("Can't dump response: ", err)
+	}
+
+	buf, _ := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Can't read body: ", err)
+	}
+	bodyReader := ioutil.NopCloser(bytes.NewBuffer(buf))
+	resp.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+	body, _ := ioutil.ReadAll(bodyReader)
+
+	return ResponseMessage{
+		TraceID:    requestID,
+		Timestamp:  makeTimestamp(),
+		RawContent: string(responseDump),
+		Body:       string(body),
+	}
+}
+
+func makeTimestamp() int64 {
+	return time.Now().UnixNano() / (int64(time.Millisecond))
 }

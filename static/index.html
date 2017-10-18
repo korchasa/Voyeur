@@ -57,21 +57,20 @@
         <div v-for="sequence in sequences" class="row">
             <div class="col-lg-12">
                 <h3>{{ sequence.id }}</h3>
-                <div id="accordion" role="tablist" aria-multiselectable="true" v-for="(call, index) in sequence.calls">
-
+                <div id="accordion" role="tablist" aria-multiselectable="true" v-for="call in sequence.calls" :key="call.uniqueId">
                     <div class="card">
-                        <div class="card-header" role="tab" v-bind:id="'heading-' + index">
+                        <div class="card-header" role="tab" :id="'heading-' + call.uniqueId">
                             <h5 class="mb-0">
-                                <a data-toggle="collapse" class="collapsed" data-parent="#accordion" v-bind:href="'#collapse-' + index" v-bind:aria-controls="'collapse-' + index">
-                                    <small>{{ call.time }}</small>
-                                    {{ call.sender.address }} &rarr;
-                                    {{ call.destination.host }}
-                                    <small>:{{ call.destination.port }}</small>
+                                <a data-toggle="collapse" class="collapsed" data-parent="#accordion" :href="'#collapse-' + call.uniqueId" :aria-controls="'collapse-' + call.uniqueId">
+                                    <!-- <small>{{ call.time }}</small> -->
+                                    {{ call.sender }} &rarr;
+                                    {{ call.destination }}
                                 </a>
+                                <small>{{ call.delta }}ms</small>
                             </h5>
                         </div>
 
-                        <div v-bind:id="'collapse-' + index" class="collapse" role="tabpanel" v-bind:aria-labelledby="'heading-' + index">
+                        <div class="collapse" role="tabpanel" :id="'collapse-' + call.uniqueId" :aria-labelledby="'heading-' + call.uniqueId">
                             <div class="card-block">
                                 <div class="row">
                                     <div class="col-lg-6">
@@ -96,7 +95,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
-<script src="https://unpkg.com/http-string-parser@0.0.5/lib/parser.js"></script>
 <script src="https://unpkg.com/vue"></script>
 
 <script>
@@ -136,41 +134,34 @@
                 };
             },
             processCall: function(event) {
-                var callData = JSON.parse(event.data);
-                var requestRaw = window.atob(callData.raw_request);
-                var responseRaw = window.atob(callData.raw_response);
-
-                var request = parseRequest(requestRaw);
-                var response = parseResponse(responseRaw);
-
-                request.payload = JSON.parse(request.body);
-                response.payload = JSON.parse(response.body);
-
-                var sequenceId = request.payload.sessionId;
-
-                var call = {
-                    time: callData.time,
-                    sender: callData.sender,
-                    destination: callData.destination,
-                    request: hljs.highlight('http', requestRaw, true).value,
-                    response: hljs.highlight('http', responseRaw, true).value
-                };
-
-                this.addCall(sequenceId, call);
+                var data = JSON.parse(event.data);
+                if (data.hasOwnProperty("Sender")) {
+                    this.addRequest(data.TraceID, data);
+                } else {
+                    this.addResponse(data.TraceID, data);
+                }
             },
-            addCall: function(seqId, call) {
-
+            addRequest: function (seqId, reqInfo) {
+                app.sequences.push({
+                    'id': seqId,
+                    'calls': [{
+                            uniqueId: seqId,
+                            time: reqInfo.Timestamp,
+                            sender: reqInfo.Sender,
+                            destination: reqInfo.Destination,
+                            request: hljs.highlight('http', reqInfo.RawContent, true).value,
+                            response: ""
+                        }]
+                });
+            },
+            addResponse: function (seqId, respInfo) {
                 for (var i = 0; i < app.sequences.length; i++) {
                     if (app.sequences[i].id === seqId) {
-                        app.sequences[i].calls.push(call);
+                        app.sequences[i].calls[0].response = hljs.highlight('http', respInfo.RawContent, true).value;
+                        app.sequences[i].calls[0].delta = respInfo.Timestamp - app.sequences[i].calls[0].time;
                         return;
                     }
                 }
-
-                app.sequences.push({
-                    'id': seqId,
-                    'calls': [call]
-                });
             }
         },
         created: function (event) {

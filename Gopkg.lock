@@ -2,14 +2,14 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "golang.org/x/net"
-  packages = ["websocket"]
-  revision = "a04bdaca5b32abe1c069418fb7088ae607de5bd0"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
+  version = "v1.2.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5158d7719437a97c51b6832d4a8142dbdd4290a88aca5930a87132b92428625f"
+  inputs-digest = "9bb5473e8ddf72048ad72d7c6f9237578049f8f45af05f45123fd79bf9117d86"
   solver-name = "gps-cdcl"
   solver-version = 1

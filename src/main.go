@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	localAddr = flag.String("l", ":9999", "local address")
+	localAddr = flag.String("l", ":8080", "local address")
 	requests  = make(chan RequestMessage, 10)
 	responses = make(chan ResponseMessage, 10)
 	quit      = make(chan bool, 2)
@@ -93,7 +93,6 @@ func main() {
 
 		requests <- processRequest(req)
 
-		req.RequestURI = ""
 		client := &http.Client{Timeout: time.Second * 10}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -102,9 +101,17 @@ func main() {
 
 		response := processResponse(resp)
 
-		err = resp.Write(w)
+		for name, value := range resp.Header {
+			w.Header().Set(name, value[0])
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal("Error on response write: ", err)
+			log.Fatal("Error on read body from local response: ", err)
+		}
+		_, err = w.Write(body)
+		if err != nil {
+			log.Fatal("Error on write body to remote response: ", err)
 		}
 
 		responses <- response
@@ -159,6 +166,14 @@ func processRequest(req *http.Request) RequestMessage {
 	bodyReader := ioutil.NopCloser(bytes.NewBuffer(buf))
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 	body, _ := ioutil.ReadAll(bodyReader)
+
+	req.RequestURI = ""
+	if req.URL.Scheme == "" {
+		req.URL.Scheme = "http"
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
 
 	return RequestMessage{
 		TraceID:     requestID,

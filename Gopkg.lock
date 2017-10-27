@@ -13,9 +13,27 @@
   revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
   version = "v1.2.0"
 
+[[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/posener/wstest"
+  packages = [".","pipe"]
+  revision = "8af9c5b3d8640f6f71f99033b5fef7643b6ff0cc"
+
+[[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
+  version = "v1.1.4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "315f6698ad02a34dee1334f3556e6a6fbda6a67bb47422d131998f27af6952f0"
+  inputs-digest = "ce6b255ef2116cf94e38c840d19b7368aea83082ac5b213ac9dd2014e0b5a46f"
   solver-name = "gps-cdcl"
   solver-version = 1

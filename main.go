@@ -1,4 +1,4 @@
-package main
+package voyeur
 
 import (
 	"bytes"
@@ -34,6 +34,25 @@ var (
 	requestID = 0
 )
 
+func main() {
+	flag.Parse()
+
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
+	http.Handle("/voyeur/", http.StripPrefix("/voyeur/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/voyeur/status", handleStatus)
+	http.HandleFunc("/voyeur/echo", handleWebSocket)
+	http.HandleFunc("/", handleProxyRequest)
+
+	go processRequestsAndResponsesMessages()
+
+	err := http.ListenAndServe(*localAddr, nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	} else {
+		log.Printf("Listen on %s", *localAddr)
+	}
+}
+
 // RequestMessage -
 type RequestMessage struct {
 	TraceID     int
@@ -52,102 +71,88 @@ type ResponseMessage struct {
 	Body       string
 }
 
-func main() {
-	flag.Parse()
-
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
-
-	http.Handle("/voyeur/", http.StripPrefix("/voyeur/", http.FileServer(http.Dir("static"))))
-
-	http.HandleFunc("/voyeur/status", func(w http.ResponseWriter, r *http.Request) {
-		message := struct{ Status string }{"ok"}
-		js, err := json.Marshal(message)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(js)
-	})
-
-	http.HandleFunc("/voyeur/echo", func(w http.ResponseWriter, r *http.Request) {
-		upgrader := websocket.Upgrader{}
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		defer func() {
-			delete(wsConns, conn)
-			conn.Close()
-		}()
-		wsConns[conn] = true
-		messageType, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-		}
-		log.Printf("Read from ws %d: %s\n", messageType, msg)
-	})
-
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-
-		requests <- processRequest(req)
-
-		client := &http.Client{Timeout: time.Second * 10}
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Fatal("Error on resend: ", err)
-		}
-
-		response := processResponse(resp)
-
-		for name, value := range resp.Header {
-			w.Header().Set(name, value[0])
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal("Error on read body from local response: ", err)
-		}
-		_, err = w.Write(body)
-		if err != nil {
-			log.Fatal("Error on write body to remote response: ", err)
-		}
-
-		responses <- response
-
-		requestID++
-	})
-
-	go func() {
-		for {
-			select {
-			case req := <-requests:
-				for ws := range wsConns {
-					err := ws.WriteJSON(req)
-					if err != nil {
-						log.Println("Can't write request to websocket: ", err)
-					}
-				}
-			case resp := <-responses:
-				for ws := range wsConns {
-					err := ws.WriteJSON(resp)
-					if err != nil {
-						log.Println("Can't write response to websocket: ", err)
-					}
-				}
-			case <-quit:
-				fmt.Println("quit")
-				return
-			}
-		}
-	}()
-
-	log.Printf("Listen on %s", *localAddr)
-	err := http.ListenAndServe(*localAddr, nil)
+func handleStatus(w http.ResponseWriter, r *http.Request) {
+	message := struct{ Status string }{"ok"}
+	js, err := json.Marshal(message)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	upgrader := websocket.Upgrader{}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer func() {
+		delete(wsConns, conn)
+		conn.Close()
+	}()
+	wsConns[conn] = true
+	messageType, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println(err)
+	}
+	log.Printf("Read from ws %d: %s\n", messageType, msg)
+}
+
+func processRequestsAndResponsesMessages() {
+	for {
+		select {
+		case req := <-requests:
+			for ws := range wsConns {
+				err := ws.WriteJSON(req)
+				if err != nil {
+					log.Println("Can't write request to websocket: ", err)
+				}
+			}
+		case resp := <-responses:
+			for ws := range wsConns {
+				err := ws.WriteJSON(resp)
+				if err != nil {
+					log.Println("Can't write response to websocket: ", err)
+				}
+			}
+		case <-quit:
+			fmt.Println("quit")
+			return
+		}
+	}
+}
+
+func handleProxyRequest(w http.ResponseWriter, req *http.Request) {
+
+	requests <- processRequest(req)
+
+	client := &http.Client{Timeout: time.Second * 10}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal("Error on resend: ", err)
+	}
+
+	response := processResponse(resp)
+
+	for name, value := range resp.Header {
+		w.Header().Set(name, value[0])
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal("Error on read body from local response: ", err)
+	}
+	_, err = w.Write(body)
+	if err != nil {
+		log.Fatal("Error on write body to remote response: ", err)
+	}
+
+	responses <- response
+
+	requestID++
 }
 
 func processRequest(req *http.Request) RequestMessage {

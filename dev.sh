@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+test_travis() {
+    docker run -v $(pwd):/project --rm skandyla/travis-cli lint .travis.yml
+}
+
 client_loop() {
     while true
     do
@@ -42,6 +46,7 @@ main() {
   case "$cmd" in
     client_loop) shift; client_loop "$@";;
     test_proxy)  shift; test_proxy "$@";;
+    test_travis)  shift; test_travis "$@";;
     *) help "$@";;
   esac
 }

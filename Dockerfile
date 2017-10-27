@@ -1,9 +1,7 @@
 FROM golang:1.9.0-alpine3.6 as builder
 WORKDIR /go/src/github.com/korchasa/voyeur
 COPY . .
-RUN echo "http://dl-4.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-RUN apk update
-RUN apk add git
+RUN apk add --no-cache git
 RUN go get -u github.com/golang/dep/cmd/dep
 RUN dep ensure
 RUN go test

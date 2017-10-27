@@ -13,8 +13,7 @@ services:
     command: ["gunicorn", "-b", "0.0.0.0:80", "httpbin:app"]
 
   voyeur:
-    image: voyeur:latest
-    build: .
+    image: korchasa/voyeur:latest
     restart: always
     ports:
       - "9999:80"

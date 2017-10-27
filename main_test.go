@@ -1,4 +1,4 @@
-package voyeur
+package main
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package voyeur
+package main
 
 import (
 	"bytes"
@@ -45,11 +45,10 @@ func main() {
 
 	go processRequestsAndResponsesMessages()
 
+	log.Printf("Listen on %s", *localAddr)
 	err := http.ListenAndServe(*localAddr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
-	} else {
-		log.Printf("Listen on %s", *localAddr)
 	}
 }
 

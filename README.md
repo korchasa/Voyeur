@@ -1,9 +1,12 @@
 # voyeur
+
 Monitor HTTP requests between docker containers without pain
 
-docker-compose.yml
-```
+Just add ``korchasa/voyeur`` container and replace receiver with vouyeur container by link alias.
 
+docker-compose.yml
+
+```yml
 sender:
   image: ...
   links:
@@ -13,8 +16,9 @@ receiver:
   image: ...
 
 voyeur:
-  image: voyeur
+  image: korchasa/voyeur:latest
   ports:
-    - "12345:12345"
+    - "8080:80"
   links:
     - receiver
+```

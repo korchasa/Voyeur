@@ -1,5 +1,7 @@
 # voyeur
 
+[![Docker Build Statu](https://img.shields.io/docker/build/korchasa/voyeur.svg?style=flat-square)]()
+
 Monitor HTTP requests between docker containers without pain
 
 Just add ``korchasa/voyeur`` container and replace receiver with vouyeur container by link alias.

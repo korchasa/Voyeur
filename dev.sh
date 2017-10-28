@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 build_container() {
-    docker build -t korchasa/voyeur .
+    docker build -t korchasa/voyeur \
+        --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+        --build-arg VCS_REF=`git rev-parse --short HEAD` \
+        .
 }
 
 test_travis() {
